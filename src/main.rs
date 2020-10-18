@@ -27,7 +27,7 @@ fn extract_frontmatter(contents: &str) -> Yaml {
         .unwrap()
         .replace("\r\n", "\n")
         .replace("\r", "\n");
-    let text = text.trim();
+    let text = text.trim_matches('\n');
     let frontmatter = yaml_rust::YamlLoader::load_from_str(&text).unwrap();
     frontmatter.first().cloned().unwrap()
 }
