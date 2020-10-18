@@ -27,15 +27,27 @@ fn extract_frontmatter(contents: &str) -> Yaml {
         .unwrap()
         .replace("\r\n", "\n")
         .replace("\r", "\n");
-    let text = text.trim();
+    let text = text.trim_matches('\n');
     let frontmatter = yaml_rust::YamlLoader::load_from_str(&text).unwrap();
     frontmatter.first().cloned().unwrap()
 }
 
-fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
-    let mut file = std::fs::File::open(test_path).unwrap();
+fn generate_includes(includes: Vec<String>, include_path: &PathBuf) -> String {
     let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
+    for include in includes {
+        let mut file = std::fs::File::open(include_path.join(include)).unwrap();
+        let mut file_contents = String::new();
+        file.read_to_string(&mut file_contents).unwrap();
+        contents.push_str(&file_contents);
+        contents.push('\n');
+    }
+    contents
+}
+
+fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
+    let mut test_file = std::fs::File::open(test_path).unwrap();
+    let mut contents = String::new();
+    test_file.read_to_string(&mut contents).unwrap();
     let frontmatter = extract_frontmatter(&contents);
     if let Yaml::Hash(h) = frontmatter {
         // let flags = extract_strings(h.get(&Yaml::String(String::from("flags"))));
@@ -44,16 +56,14 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
             extract_strings(h.get(&Yaml::String(String::from("includes")))).unwrap_or_default();
         includes.push(String::from("assert.js"));
         includes.push(String::from("sta.js"));
-        let mut include_contents = String::new();
-        for include in includes {
-            let mut include_file = std::fs::File::open(include_path.join(include)).unwrap();
-            let mut include_file_contents = String::new();
-            include_file
-                .read_to_string(&mut include_file_contents)
-                .unwrap();
-            include_contents.push_str(include_file_contents.as_ref());
-            include_contents.push('\n');
-        }
+        let mut include_contents = generate_includes(includes, include_path);
+        include_contents.push_str(&contents);
+        let mut final_file = tempfile::NamedTempFile::new().unwrap();
+        final_file.write_all(include_contents.as_bytes()).unwrap();
+        let node_process = std::process::Command::new("node")
+            .arg(final_file.path())
+            .output()
+            .unwrap();
     }
 }
 
