@@ -22,9 +22,13 @@ fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
 fn extract_frontmatter(contents: &str) -> Yaml {
     let yaml_start = contents.find("/*---").unwrap();
     let yaml_end = contents.find("---*/").unwrap();
-    let frontmatter =
-        yaml_rust::YamlLoader::load_from_str(contents.get(yaml_start + 6..yaml_end).unwrap())
-            .unwrap();
+    let text = contents
+        .get(yaml_start + 5..yaml_end)
+        .unwrap()
+        .replace("\r\n", "\n")
+        .replace("\r", "\n");
+    let text = text.trim();
+    let frontmatter = yaml_rust::YamlLoader::load_from_str(&text).unwrap();
     frontmatter.first().cloned().unwrap()
 }
 
