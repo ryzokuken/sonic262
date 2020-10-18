@@ -1,6 +1,16 @@
 use std::io::prelude::*;
+use std::path::PathBuf;
 
 use yaml_rust::Yaml;
+
+use clap::Clap;
+
+#[derive(Clap, Debug)]
+#[clap(version = "0.1.0", author = "Ujjwal Sharma <ryzokuken@disroot.org>")]
+struct Opts {
+    #[clap(long)]
+    root_path: PathBuf,
+}
 
 fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
     match yaml {
@@ -17,10 +27,9 @@ fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
     }
 }
 
-fn process_file(test_path: &std::path::Path, root_path: &std::path::Path) {
+fn process_file(test_path: &PathBuf, root_path: &PathBuf) {
     // TODO: add CLI option for test_path
     // TODO: add CLI option for include_path
-    // TODO: add CLI option for root_path
     // test_path ||= root_path + 'test'
     // include_path ||= root_path + 'harness'
     // TODO: if test_path points to a file, call process_file directly
@@ -59,13 +68,13 @@ fn process_file(test_path: &std::path::Path, root_path: &std::path::Path) {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let root_path = std::path::Path::new(&args[1]);
+    let args = Opts::parse();
+    let root_path = args.root_path;
     let test_path = root_path.join("test");
     for entry in walkdir::WalkDir::new(test_path) {
         let ent = entry.unwrap();
         if ent.metadata().unwrap().is_file() {
-            process_file(ent.path(), root_path);
+            process_file(&ent.into_path(), &root_path);
         }
     }
 }
