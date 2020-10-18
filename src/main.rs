@@ -57,6 +57,13 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
         includes.push(String::from("assert.js"));
         includes.push(String::from("sta.js"));
         let mut include_contents = generate_includes(includes, include_path);
+        include_contents.push_str(&contents);
+        let mut final_file = tempfile::NamedTempFile::new().unwrap();
+        final_file.write_all(include_contents.as_bytes()).unwrap();
+        let node_process = std::process::Command::new("node")
+            .arg(final_file.path())
+            .output()
+            .unwrap();
     }
 }
 
