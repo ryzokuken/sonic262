@@ -73,10 +73,14 @@ fn main() {
     let include_path = args
         .include_path
         .unwrap_or_else(|| root_path.unwrap().join("harness"));
-    for entry in walkdir::WalkDir::new(test_path) {
-        let ent = entry.unwrap();
-        if ent.metadata().unwrap().is_file() {
-            process_file(&ent.into_path(), &include_path);
+    if test_path.is_file() {
+        process_file(&test_path, &include_path);
+    } else {
+        for entry in walkdir::WalkDir::new(test_path) {
+            let ent = entry.unwrap();
+            if ent.metadata().unwrap().is_file() {
+                process_file(&ent.into_path(), &include_path);
+            }
         }
     }
 }
