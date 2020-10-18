@@ -28,11 +28,6 @@ fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
 }
 
 fn process_file(test_path: &PathBuf, root_path: &PathBuf) {
-    // TODO: add CLI option for test_path
-    // TODO: add CLI option for include_path
-    // test_path ||= root_path + 'test'
-    // include_path ||= root_path + 'harness'
-    // TODO: if test_path points to a file, call process_file directly
     let mut file = std::fs::File::open(test_path).unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
@@ -66,6 +61,11 @@ fn process_file(test_path: &PathBuf, root_path: &PathBuf) {
 }
 
 fn main() {
+    // TODO: add CLI option for test_path
+    // TODO: add CLI option for include_path
+    // test_path ||= root_path + 'test'
+    // include_path ||= root_path + 'harness'
+    // TODO: if test_path points to a file, call process_file directly
     let args = Opts::parse();
     let root_path = args.root_path;
     let test_path = root_path.join("test");
