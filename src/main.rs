@@ -28,19 +28,17 @@ fn process_file(test_path: &std::path::Path, root_path: &std::path::Path) {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
     let yaml_start = contents.find("/*---");
-    if yaml_start.is_some() {
+    if let Some(start) = yaml_start {
         let yaml_end = contents.find("---*/");
         let frontmatter = yaml_rust::YamlLoader::load_from_str(
-            contents
-                .get(yaml_start.unwrap() + 6..yaml_end.unwrap())
-                .unwrap(),
+            contents.get(start + 6..yaml_end.unwrap()).unwrap(),
         )
         .unwrap();
         if let Yaml::Hash(h) = &frontmatter[0] {
             // let flags = extract_strings(h.get(&Yaml::String(String::from("flags"))));
             // let features = extract_strings(h.get(&Yaml::String(String::from("features"))));
-            let mut includes = extract_strings(h.get(&Yaml::String(String::from("includes"))))
-                .unwrap_or(Vec::new());
+            let mut includes =
+                extract_strings(h.get(&Yaml::String(String::from("includes")))).unwrap_or_default();
             includes.push(String::from("assert.js"));
             includes.push(String::from("sta.js"));
             let include_path = root_path.join("harness");
