@@ -7,7 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-walkdir = "2"
-yaml-rust = "0.4"
 clap = "3.0.0-beta.2"
-tempfile = "3"
+serde_yaml = "0.8.13"
+rayon = "1.5.0"
+tempfile = "3.1.0"
+jwalk = "0.5.1"
