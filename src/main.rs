@@ -67,6 +67,19 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
     }
 }
 
+fn run_test(test_path: PathBuf, include_path: PathBuf) {
+    if test_path.is_file() {
+        process_file(&test_path, &include_path);
+    } else {
+        for entry in walkdir::WalkDir::new(test_path) {
+            let ent = entry.unwrap();
+            if ent.metadata().unwrap().is_file() {
+                process_file(&ent.into_path(), &include_path);
+            }
+        }
+    }
+}
+
 #[derive(Clap)]
 #[clap(version = "0.1.0", author = "Ujjwal Sharma <ryzokuken@disroot.org>")]
 struct Opts {
@@ -87,14 +100,5 @@ fn main() {
     let include_path = args
         .include_path
         .unwrap_or_else(|| root_path.unwrap().join("harness"));
-    if test_path.is_file() {
-        process_file(&test_path, &include_path);
-    } else {
-        for entry in walkdir::WalkDir::new(test_path) {
-            let ent = entry.unwrap();
-            if ent.metadata().unwrap().is_file() {
-                process_file(&ent.into_path(), &include_path);
-            }
-        }
-    }
+    run_test(test_path, include_path);
 }
