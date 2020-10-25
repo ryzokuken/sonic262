@@ -1,48 +1,58 @@
 use clap::Clap;
+use colored::Colorize;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
-use tempfile::NamedTempFile;
 use std::process::ExitStatus;
-use colored::Colorize;
+use tempfile::NamedTempFile;
+use walkdir::WalkDir;
 
+// TODO All of these shouldn't be Option's. One of these should be a required value
 #[derive(Clap)]
-#[clap(version = "0.1.0", author = "Ujjwal Sharma <ryzokuken@disroot.org>")]
+#[clap(
+    name = "sonic262",
+    version = "0.1.0",
+    about = "A harness for test262",
+    author = "Ujjwal Sharma <ryzokuken@disroot.org>"
+)]
 struct Opts {
     #[clap(long)]
-    files_to_test: Vec<PathBuf>, // TODO add option for multiple files
+    root_path: Option<PathBuf>,
+    #[clap(long)]
+    test_path: Option<PathBuf>,
+    #[clap(long)]
+    files_to_test: Option<Vec<PathBuf>>, // TODO add option for multiple files
 }
 
 // TODO maybe use a logging crate instead of doing... this
 fn main() {
     let args = Opts::parse();
-    let files_to_test = args.files_to_test;
+    let files_to_test = args.files_to_test.unwrap();
     for file in files_to_test {
         let frontmatter = extract_frontmatter(&file);
         match frontmatter {
-            Some(f) => match get_include_files(
-                &f,
-                PathBuf::from("/home/humancalico/code/test262/harness"),
-            ) {
-                Ok(include_files) => match generate_final_file_to_test(&file, include_files) {
-                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                        Ok(exit_status) => {
-                            if exit_status.success() {
-                                println!("{} {:?}", "Great Sucess".green(), file);
-                            } else {
-                                eprintln!("{} {:?}", "FAIL".red(), file);
+            Some(f) => {
+                match get_include_files(&f, PathBuf::from("/home/humancalico/code/test262/harness"))
+                {
+                    Ok(include_files) => match generate_final_file_to_test(&file, include_files) {
+                        Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                            Ok(exit_status) => {
+                                if exit_status.success() {
+                                    println!("{} {:?}", "Great Sucess".green(), file);
+                                } else {
+                                    eprintln!("{} {:?}", "FAIL".red(), file);
+                                }
                             }
+                            Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
                         },
-                        Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
+                        Err(e) => {
+                            eprintln!("Couldn't generate file: {:?} to test | Err: {}", file, e)
+                        }
                     },
-                    Err(e) => eprintln!(
-                        "Couldn't generate file: {:?} to test. Err: {}",
-                        file, e
-                    ),
-                },
-                Err(e) => eprintln!("No includes for the file {:?}, Err: {}", file, e),
-            },
+                    Err(e) => eprintln!("No includes for the file {:?} | Err: {}", file, e),
+                }
+            }
             None => eprintln!(
                 "Couldn't convert frontmatter of file: {:?} to serde_yaml::Value",
                 file
@@ -51,9 +61,16 @@ fn main() {
     }
 }
 
-// fn walk(root_path: PathBuf) -> Result<PathBuf> {
 // TODO walk file in parallel using jwalk
-// }
+fn walk(root_path: PathBuf) -> walkdir::Result<Vec<PathBuf>> {
+    let mut final_paths: Vec<PathBuf> = vec![];
+    for entry in WalkDir::new(root_path) {
+        if entry?.file_type().is_file() {
+            final_paths.push(entry?.into_path());
+        }
+    }
+    Ok(final_paths)
+}
 
 // TODO use a Result here instead of an Option
 // TODO do this using the FromStr trait maybe
@@ -116,6 +133,6 @@ fn generate_final_file_to_test(
 
 fn run_file_in_node(file: NamedTempFile) -> std::io::Result<ExitStatus> {
     // TODO .status() waits for the command to execute
+    // FIXME currently shows all the errors if node is not able to run the file
     Command::new("node").arg(file.path()).status()
-    // TODO add filename and colors and shits 
 }
