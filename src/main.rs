@@ -4,37 +4,50 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use tempfile::NamedTempFile;
+use std::process::ExitStatus;
+use colored::Colorize;
 
-#[derive(Clap, Debug)]
+#[derive(Clap)]
 #[clap(version = "0.1.0", author = "Ujjwal Sharma <ryzokuken@disroot.org>")]
 struct Opts {
     #[clap(long)]
-    file_to_test: PathBuf,
+    files_to_test: Vec<PathBuf>, // TODO add option for multiple files
 }
 
 // TODO maybe use a logging crate instead of doing... this
 fn main() {
     let args = Opts::parse();
-    let file_to_test = args.file_to_test;
-    let frontmatter = extract_frontmatter(&file_to_test);
-    match frontmatter {
-        Some(f) => match get_include_files(
-            &f,
-            PathBuf::from("/home/humancalico/code/test262/harness"),
-        ) {
-            Ok(include_files) => match generate_final_file_to_test(&file_to_test, include_files) {
-                Ok(file_to_run) => run_file_in_node(file_to_run),
-                Err(e) => eprintln!(
-                    "Couldn't generate file: {:?} to test. Err: {}",
-                    file_to_test, e
-                ),
+    let files_to_test = args.files_to_test;
+    for file in files_to_test {
+        let frontmatter = extract_frontmatter(&file);
+        match frontmatter {
+            Some(f) => match get_include_files(
+                &f,
+                PathBuf::from("/home/humancalico/code/test262/harness"),
+            ) {
+                Ok(include_files) => match generate_final_file_to_test(&file, include_files) {
+                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                        Ok(exit_status) => {
+                            if exit_status.success() {
+                                println!("{} {:?}", "Great Sucess".green(), file);
+                            } else {
+                                eprintln!("{} {:?}", "FAIL".red(), file);
+                            }
+                        },
+                        Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
+                    },
+                    Err(e) => eprintln!(
+                        "Couldn't generate file: {:?} to test. Err: {}",
+                        file, e
+                    ),
+                },
+                Err(e) => eprintln!("No includes for the file {:?}, Err: {}", file, e),
             },
-            Err(e) => eprintln!("No includes for the file {:?}, Err: {}", file_to_test, e),
-        },
-        None => eprintln!(
-            "Couldn't convert frontmatter of file: {:?} to serde_yaml::Value",
-            file_to_test
-        ),
+            None => eprintln!(
+                "Couldn't convert frontmatter of file: {:?} to serde_yaml::Value",
+                file
+            ),
+        }
     }
 }
 
@@ -86,20 +99,23 @@ fn get_include_files(
 
 fn generate_final_file_to_test(
     file_to_test: &PathBuf,
-    include_files_to_add: Vec<PathBuf>,
+    files_to_add: Vec<PathBuf>,
 ) -> std::io::Result<NamedTempFile> {
     // TODO do this asynchronously
-    let mut contents = fs::read_to_string(file_to_test)?;
-    for file in include_files_to_add {
+    let mut contents = String::new();
+    for file in files_to_add {
         let file_contents = fs::read_to_string(file)?;
         contents.push_str(&file_contents);
     }
+    let file_to_test_contents = fs::read_to_string(file_to_test)?;
+    contents.push_str(&file_to_test_contents);
     let mut file = tempfile::Builder::new().suffix(".js").tempfile()?;
     writeln!(file, "{}", contents)?;
     Ok(file)
 }
 
-fn run_file_in_node(file: NamedTempFile) {
-    // TODO remove use of unwrap here
-    let _node_process = Command::new("node").arg(file.path()).output().unwrap();
+fn run_file_in_node(file: NamedTempFile) -> std::io::Result<ExitStatus> {
+    // TODO .status() waits for the command to execute
+    Command::new("node").arg(file.path()).status()
+    // TODO add filename and colors and shits 
 }
