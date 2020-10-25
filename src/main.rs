@@ -28,7 +28,8 @@ struct Opts {
 // TODO maybe use a logging crate instead of doing... this
 fn main() {
     let args = Opts::parse();
-    let files_to_test = args.files_to_test.unwrap();
+    // let files_to_test = args.files_to_test.unwrap();
+    let files_to_test = walk(args.test_path.unwrap()).unwrap();
     for file in files_to_test {
         let frontmatter = extract_frontmatter(&file);
         match frontmatter {
@@ -65,8 +66,11 @@ fn main() {
 fn walk(root_path: PathBuf) -> walkdir::Result<Vec<PathBuf>> {
     let mut final_paths: Vec<PathBuf> = vec![];
     for entry in WalkDir::new(root_path) {
-        if entry?.file_type().is_file() {
-            final_paths.push(entry?.into_path());
+        // FIXME possible unecessary clone
+        let entry_clone = entry?.clone();
+        if entry_clone.file_type().is_file() {
+            final_paths.push(entry_clone.into_path());
+        } else {
         }
     }
     Ok(final_paths)
@@ -77,6 +81,7 @@ fn walk(root_path: PathBuf) -> walkdir::Result<Vec<PathBuf>> {
 fn extract_frontmatter(file_to_test: &PathBuf) -> Option<String> {
     // FIXME remove unwrap
     // TODO Read asynchronously
+    dbg!(&file_to_test);
     let file_contents = fs::read_to_string(file_to_test).unwrap();
     // TODO cleanup using the and_then method
     let yaml_start = file_contents.find("/*---");
@@ -101,17 +106,19 @@ fn get_include_files(
     include_path_root: PathBuf,
 ) -> serde_yaml::Result<Vec<PathBuf>> {
     let frontmatter_value: serde_yaml::Value = serde_yaml::from_str(frontmatter_str)?;
-    // TODO use .ok_or_else() here
-    let includes_yaml = frontmatter_value.get("includes").unwrap();
-    // TODO use turbofish like .collect()
-    let mut includes: Vec<String> = serde_yaml::from_value(includes_yaml.clone())?;
-    let must_include = &mut vec!["assert.js".to_string(), "sta.js".to_string()];
-    includes.append(must_include);
-    let mut include_paths: Vec<PathBuf> = vec![];
-    for include in includes {
-        include_paths.push(include_path_root.join(include));
+    let includes_yaml_wrapped = frontmatter_value.get("includes");
+    if let Some(includes_yaml) = includes_yaml_wrapped {
+        // TODO use turbofish like .collect()
+        let mut includes: Vec<String> = serde_yaml::from_value(includes_yaml.clone())?;
+        let must_include = &mut vec!["assert.js".to_string(), "sta.js".to_string()];
+        includes.append(must_include);
+        let mut include_paths: Vec<PathBuf> = vec![];
+        for include in includes {
+            include_paths.push(include_path_root.join(include));
+        }
+        Ok(include_paths)
+    } else {
     }
-    Ok(include_paths)
 }
 
 fn generate_final_file_to_test(
