@@ -30,6 +30,7 @@ fn main() {
     let args = Opts::parse();
     // let files_to_test = args.files_to_test.unwrap();
     let files_to_test = walk(args.test_path.unwrap()).unwrap();
+    dbg!(&files_to_test.len());
     let mut tests_run = 0;
     let mut passed_tests = 0;
     let mut failed_tests = 0;
@@ -73,7 +74,25 @@ fn main() {
                 }
                 Err(e) => eprintln!("Could not get serde value from frontmatter | Err: {}", e),
             },
-            None => eprintln!("No frontmatter found"),
+            None => {
+                match generate_final_file_to_test(&file, vec![]) {
+                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                        Ok(exit_status) => {
+                            if exit_status.success() {
+                                tests_run += 1;
+                                passed_tests += 1;
+                                println!("{} {:?}", "Great Success".green(), file);
+                            } else {
+                                tests_run += 1;
+                                failed_tests += 1;
+                                eprintln!("{} {:?}", "FAIL".red(), file);
+                            }
+                        }
+                        Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
+                    },
+                    Err(e) => eprintln!("Couldn't generate file: {:?} to test | Err: {}", file, e),
+                }
+            }
         }
     }
     println!(
@@ -124,10 +143,6 @@ fn extract_frontmatter(file_to_test: &PathBuf) -> Option<String> {
 fn get_serde_value(frontmatter_str: &str) -> serde_yaml::Result<serde_yaml::Value> {
     serde_yaml::from_str(frontmatter_str)
 }
-
-// fn get_includes(frontmatter_value: serde_yaml::Value) -> Option<&serde_yaml::Value> {
-//     frontmatter_value.get("includes")
-// }
 
 fn get_include_paths(
     includes_value: &serde_yaml::Value,
