@@ -17,12 +17,12 @@ use walkdir::WalkDir;
     author = "Ujjwal Sharma <ryzokuken@disroot.org>"
 )]
 struct Opts {
-    #[clap(long)]
-    root_path: Option<PathBuf>,
+    // #[clap(long)]
+    // root_path: Option<PathBuf>,
     #[clap(long)]
     test_path: Option<PathBuf>,
-    #[clap(long)]
-    files_to_test: Option<Vec<PathBuf>>, // TODO add option for multiple files
+    // #[clap(long)]
+    // files_to_test: Option<Vec<PathBuf>>,
 }
 
 // TODO maybe use a logging crate instead of doing... this
@@ -30,36 +30,58 @@ fn main() {
     let args = Opts::parse();
     // let files_to_test = args.files_to_test.unwrap();
     let files_to_test = walk(args.test_path.unwrap()).unwrap();
+    let mut tests_run = 0;
+    let mut passed_tests = 0;
+    let mut failed_tests = 0;
     for file in files_to_test {
         let frontmatter = extract_frontmatter(&file);
         match frontmatter {
-            Some(f) => {
-                match get_include_files(&f, PathBuf::from("/home/humancalico/code/test262/harness"))
-                {
-                    Ok(include_files) => match generate_final_file_to_test(&file, include_files) {
-                        Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                            Ok(exit_status) => {
-                                if exit_status.success() {
-                                    println!("{} {:?}", "Great Sucess".green(), file);
-                                } else {
-                                    eprintln!("{} {:?}", "FAIL".red(), file);
+            Some(f) => match get_serde_value(&f) {
+                Ok(frontmatter_value) => {
+                    if let Some(includes_value) = frontmatter_value.get("includes") {
+                        match get_include_paths(
+                            includes_value,
+                            PathBuf::from("/home/humancalico/code/test262/harness"),
+                        ) {
+                            Ok(include_files) => {
+                                match generate_final_file_to_test(&file, include_files) {
+                                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                                        Ok(exit_status) => {
+                                            if exit_status.success() {
+                                                tests_run += 1;
+                                                passed_tests += 1;
+                                                println!("{} {:?}", "Great Success".green(), file);
+                                            } else {
+                                                tests_run += 1;
+                                                failed_tests += 1;
+                                                eprintln!("{} {:?}", "FAIL".red(), file);
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to execute the file | Error: {:?}", e)
+                                        }
+                                    },
+                                    Err(e) => eprintln!(
+                                        "Couldn't generate file: {:?} to test | Err: {}",
+                                        file, e
+                                    ),
                                 }
                             }
-                            Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
-                        },
-                        Err(e) => {
-                            eprintln!("Couldn't generate file: {:?} to test | Err: {}", file, e)
+                            Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                         }
-                    },
-                    Err(e) => eprintln!("No includes for the file {:?} | Err: {}", file, e),
+                    }
                 }
-            }
-            None => eprintln!(
-                "Couldn't convert frontmatter of file: {:?} to serde_yaml::Value",
-                file
-            ),
+                Err(e) => eprintln!("Could not get serde value from frontmatter | Err: {}", e),
+            },
+            None => eprintln!("No frontmatter found"),
         }
     }
+    println!(
+        "TOTAL: {}, FAILED: {}, PASSED: {}",
+        tests_run.to_string().yellow(),
+        failed_tests.to_string().red(),
+        passed_tests.to_string().green()
+    );
 }
 
 // TODO walk file in parallel using jwalk
@@ -81,7 +103,6 @@ fn walk(root_path: PathBuf) -> walkdir::Result<Vec<PathBuf>> {
 fn extract_frontmatter(file_to_test: &PathBuf) -> Option<String> {
     // FIXME remove unwrap
     // TODO Read asynchronously
-    dbg!(&file_to_test);
     let file_contents = fs::read_to_string(file_to_test).unwrap();
     // TODO cleanup using the and_then method
     let yaml_start = file_contents.find("/*---");
@@ -100,25 +121,26 @@ fn extract_frontmatter(file_to_test: &PathBuf) -> Option<String> {
     }
 }
 
-// FIXME sorry about the naming here
-fn get_include_files(
-    frontmatter_str: &str,
+fn get_serde_value(frontmatter_str: &str) -> serde_yaml::Result<serde_yaml::Value> {
+    serde_yaml::from_str(frontmatter_str)
+}
+
+// fn get_includes(frontmatter_value: serde_yaml::Value) -> Option<&serde_yaml::Value> {
+//     frontmatter_value.get("includes")
+// }
+
+fn get_include_paths(
+    includes_value: &serde_yaml::Value,
     include_path_root: PathBuf,
 ) -> serde_yaml::Result<Vec<PathBuf>> {
-    let frontmatter_value: serde_yaml::Value = serde_yaml::from_str(frontmatter_str)?;
-    let includes_yaml_wrapped = frontmatter_value.get("includes");
-    if let Some(includes_yaml) = includes_yaml_wrapped {
-        // TODO use turbofish like .collect()
-        let mut includes: Vec<String> = serde_yaml::from_value(includes_yaml.clone())?;
-        let must_include = &mut vec!["assert.js".to_string(), "sta.js".to_string()];
-        includes.append(must_include);
-        let mut include_paths: Vec<PathBuf> = vec![];
-        for include in includes {
-            include_paths.push(include_path_root.join(include));
-        }
-        Ok(include_paths)
-    } else {
+    let mut includes: Vec<String> = serde_yaml::from_value(includes_value.clone())?;
+    let must_include = &mut vec!["assert.js".to_string(), "sta.js".to_string()];
+    includes.append(must_include);
+    let mut include_paths: Vec<PathBuf> = vec![];
+    for include in includes {
+        include_paths.push(include_path_root.join(include));
     }
+    Ok(include_paths)
 }
 
 fn generate_final_file_to_test(
