@@ -1,5 +1,6 @@
 use clap::Clap;
 use colored::Colorize;
+use serde_yaml::Value::Sequence;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -7,7 +8,6 @@ use std::process::Command;
 use std::process::ExitStatus;
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
-use serde_yaml::Value::Sequence;
 
 // TODO All of these shouldn't be Option's. One of these should be a required value
 #[derive(Clap)]
@@ -21,7 +21,9 @@ struct Opts {
     // #[clap(long)]
     // root_path: Option<PathBuf>,
     #[clap(long)]
-    test_path: Option<PathBuf>,
+    test_path: PathBuf,
+    #[clap(long)]
+    include_path: PathBuf,
     // #[clap(long)]
     // files_to_test: Option<Vec<PathBuf>>,
 }
@@ -30,7 +32,8 @@ struct Opts {
 fn main() {
     let args = Opts::parse();
     // let files_to_test = args.files_to_test.unwrap();
-    let files_to_test = walk(args.test_path.unwrap()).unwrap();
+    let files_to_test = walk(args.test_path).unwrap();
+    let include_path = args.include_path;
     dbg!(&files_to_test.len());
     let mut tests_run = 0;
     let mut passed_tests = 0;
@@ -39,95 +42,83 @@ fn main() {
         let frontmatter = extract_frontmatter(&file);
         match frontmatter {
             Some(f) => match get_serde_value(&f) {
-                Ok(frontmatter_value) => {
-                    match frontmatter_value.get("includes") {
-                        Some(includes_value) => {
-                            match get_include_paths(
-                                includes_value,
-                                PathBuf::from("/home/humancalico/code/test262/harness"),
-                            ) {
-                                Ok(include_files) => {
-                                    match generate_final_file_to_test(&file, include_files) {
-                                        Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                                            Ok(exit_status) => {
-                                                if exit_status.success() {
-                                                    tests_run += 1;
-                                                    passed_tests += 1;
-                                                    println!("{} {:?}", "Great Success".green(), file);
-                                                } else {
-                                                    tests_run += 1;
-                                                    failed_tests += 1;
-                                                    eprintln!("{} {:?}", "FAIL".red(), file);
-                                                }
+                Ok(frontmatter_value) => match frontmatter_value.get("includes") {
+                    Some(includes_value) => {
+                        match get_include_paths(includes_value, &include_path) {
+                            Ok(include_files) => {
+                                match generate_final_file_to_test(&file, include_files) {
+                                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                                        Ok(exit_status) => {
+                                            if exit_status.success() {
+                                                tests_run += 1;
+                                                passed_tests += 1;
+                                                println!("{} {:?}", "Great Success".green(), file);
+                                            } else {
+                                                tests_run += 1;
+                                                failed_tests += 1;
+                                                eprintln!("{} {:?}", "FAIL".red(), file);
                                             }
-                                            Err(e) => {
-                                                eprintln!("Failed to execute the file | Error: {:?}", e)
-                                            }
-                                        },
-                                        Err(e) => eprintln!(
-                                            "Couldn't generate file: {:?} to test | Err: {}",
-                                            file, e
-                                        ),
-                                    }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to execute the file | Error: {:?}", e)
+                                        }
+                                    },
+                                    Err(e) => eprintln!(
+                                        "Couldn't generate file: {:?} to test | Err: {}",
+                                        file, e
+                                    ),
                                 }
-                                Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                             }
-                        }
-                        None => {
-                            match get_include_paths(
-                                &Sequence([].to_vec()),
-                                PathBuf::from("/home/humancalico/code/test262/harness"),
-                            ) {
-                                Ok(include_files) => {
-                                    match generate_final_file_to_test(&file, include_files) {
-                                        Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                                            Ok(exit_status) => {
-                                                if exit_status.success() {
-                                                    tests_run += 1;
-                                                    passed_tests += 1;
-                                                    println!("{} {:?}", "Great Success".green(), file);
-                                                } else {
-                                                    tests_run += 1;
-                                                    failed_tests += 1;
-                                                    eprintln!("{} {:?}", "FAIL".red(), file);
-                                                }
-                                            }
-                                            Err(e) => {
-                                                eprintln!("Failed to execute the file | Error: {:?}", e)
-                                            }
-                                        },
-                                        Err(e) => eprintln!(
-                                            "Couldn't generate file: {:?} to test | Err: {}",
-                                            file, e
-                                        ),
-                                    }
-                                }
-                                Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
-                            }
+                            Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                         }
                     }
-                }
-                Err(e) => eprintln!("Could not get serde value from frontmatter | Err: {}", e),
-            },
-            None => {
-                match generate_final_file_to_test(&file, vec![]) {
-                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                        Ok(exit_status) => {
-                            if exit_status.success() {
-                                tests_run += 1;
-                                passed_tests += 1;
-                                println!("{} {:?}", "Great Success".green(), file);
-                            } else {
-                                tests_run += 1;
-                                failed_tests += 1;
-                                eprintln!("{} {:?}", "FAIL".red(), file);
+                    None => match get_include_paths(&Sequence([].to_vec()), &include_path) {
+                        Ok(include_files) => {
+                            match generate_final_file_to_test(&file, include_files) {
+                                Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                                    Ok(exit_status) => {
+                                        if exit_status.success() {
+                                            tests_run += 1;
+                                            passed_tests += 1;
+                                            println!("{} {:?}", "Great Success".green(), file);
+                                        } else {
+                                            tests_run += 1;
+                                            failed_tests += 1;
+                                            eprintln!("{} {:?}", "FAIL".red(), file);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        eprintln!("Failed to execute the file | Error: {:?}", e)
+                                    }
+                                },
+                                Err(e) => eprintln!(
+                                    "Couldn't generate file: {:?} to test | Err: {}",
+                                    file, e
+                                ),
                             }
                         }
-                        Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
+                        Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                     },
-                    Err(e) => eprintln!("Couldn't generate file: {:?} to test | Err: {}", file, e),
-                }
-            }
+                },
+                Err(e) => eprintln!("Could not get serde value from frontmatter | Err: {}", e),
+            },
+            None => match generate_final_file_to_test(&file, vec![]) {
+                Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                    Ok(exit_status) => {
+                        if exit_status.success() {
+                            tests_run += 1;
+                            passed_tests += 1;
+                            println!("{} {:?}", "Great Success".green(), file);
+                        } else {
+                            tests_run += 1;
+                            failed_tests += 1;
+                            eprintln!("{} {:?}", "FAIL".red(), file);
+                        }
+                    }
+                    Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
+                },
+                Err(e) => eprintln!("Couldn't generate file: {:?} to test | Err: {}", file, e),
+            },
         }
     }
     println!(
@@ -181,7 +172,7 @@ fn get_serde_value(frontmatter_str: &str) -> serde_yaml::Result<serde_yaml::Valu
 
 fn get_include_paths(
     includes_value: &serde_yaml::Value,
-    include_path_root: PathBuf,
+    include_path_root: &PathBuf,
 ) -> serde_yaml::Result<Vec<PathBuf>> {
     let mut includes: Vec<String> = serde_yaml::from_value(includes_value.clone())?;
     let must_include = &mut vec!["assert.js".to_string(), "sta.js".to_string()];
