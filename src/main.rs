@@ -7,6 +7,7 @@ use std::process::Command;
 use std::process::ExitStatus;
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
+use serde_yaml::Value::Sequence;
 
 // TODO All of these shouldn't be Option's. One of these should be a required value
 #[derive(Clap)]
@@ -39,36 +40,70 @@ fn main() {
         match frontmatter {
             Some(f) => match get_serde_value(&f) {
                 Ok(frontmatter_value) => {
-                    if let Some(includes_value) = frontmatter_value.get("includes") {
-                        match get_include_paths(
-                            includes_value,
-                            PathBuf::from("/home/humancalico/code/test262/harness"),
-                        ) {
-                            Ok(include_files) => {
-                                match generate_final_file_to_test(&file, include_files) {
-                                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                                        Ok(exit_status) => {
-                                            if exit_status.success() {
-                                                tests_run += 1;
-                                                passed_tests += 1;
-                                                println!("{} {:?}", "Great Success".green(), file);
-                                            } else {
-                                                tests_run += 1;
-                                                failed_tests += 1;
-                                                eprintln!("{} {:?}", "FAIL".red(), file);
+                    match frontmatter_value.get("includes") {
+                        Some(includes_value) => {
+                            match get_include_paths(
+                                includes_value,
+                                PathBuf::from("/home/humancalico/code/test262/harness"),
+                            ) {
+                                Ok(include_files) => {
+                                    match generate_final_file_to_test(&file, include_files) {
+                                        Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                                            Ok(exit_status) => {
+                                                if exit_status.success() {
+                                                    tests_run += 1;
+                                                    passed_tests += 1;
+                                                    println!("{} {:?}", "Great Success".green(), file);
+                                                } else {
+                                                    tests_run += 1;
+                                                    failed_tests += 1;
+                                                    eprintln!("{} {:?}", "FAIL".red(), file);
+                                                }
                                             }
-                                        }
-                                        Err(e) => {
-                                            eprintln!("Failed to execute the file | Error: {:?}", e)
-                                        }
-                                    },
-                                    Err(e) => eprintln!(
-                                        "Couldn't generate file: {:?} to test | Err: {}",
-                                        file, e
-                                    ),
+                                            Err(e) => {
+                                                eprintln!("Failed to execute the file | Error: {:?}", e)
+                                            }
+                                        },
+                                        Err(e) => eprintln!(
+                                            "Couldn't generate file: {:?} to test | Err: {}",
+                                            file, e
+                                        ),
+                                    }
                                 }
+                                Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                             }
-                            Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
+                        }
+                        None => {
+                            match get_include_paths(
+                                &Sequence([].to_vec()),
+                                PathBuf::from("/home/humancalico/code/test262/harness"),
+                            ) {
+                                Ok(include_files) => {
+                                    match generate_final_file_to_test(&file, include_files) {
+                                        Ok(file_to_run) => match run_file_in_node(file_to_run) {
+                                            Ok(exit_status) => {
+                                                if exit_status.success() {
+                                                    tests_run += 1;
+                                                    passed_tests += 1;
+                                                    println!("{} {:?}", "Great Success".green(), file);
+                                                } else {
+                                                    tests_run += 1;
+                                                    failed_tests += 1;
+                                                    eprintln!("{} {:?}", "FAIL".red(), file);
+                                                }
+                                            }
+                                            Err(e) => {
+                                                eprintln!("Failed to execute the file | Error: {:?}", e)
+                                            }
+                                        },
+                                        Err(e) => eprintln!(
+                                            "Couldn't generate file: {:?} to test | Err: {}",
+                                            file, e
+                                        ),
+                                    }
+                                }
+                                Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
+                            }
                         }
                     }
                 }
