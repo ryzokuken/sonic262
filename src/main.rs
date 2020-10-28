@@ -9,7 +9,6 @@ use std::process::ExitStatus;
 use tempfile::NamedTempFile;
 use walkdir::WalkDir;
 
-// TODO All of these shouldn't be Option's. One of these should be a required value
 #[derive(Clap)]
 #[clap(
     name = "sonic262",
@@ -93,7 +92,6 @@ fn main() {
     );
 }
 
-// This has the same function signature as its nested function so maybe concatenate them together?
 fn generate_and_run(
     file_to_test: &PathBuf,
     files_to_add: Vec<PathBuf>,
@@ -135,13 +133,10 @@ fn walk(root_path: PathBuf) -> walkdir::Result<Vec<PathBuf>> {
     Ok(final_paths)
 }
 
-// TODO use a Result here instead of an Option
-// TODO do this using the FromStr trait maybe
 fn extract_frontmatter(file_to_test: &PathBuf) -> Option<String> {
     // FIXME remove unwrap
     // TODO Read asynchronously
     let file_contents = fs::read_to_string(file_to_test).unwrap();
-    // TODO cleanup using the and_then method
     let yaml_start = file_contents.find("/*---");
     if let Some(start) = yaml_start {
         let yaml_end = file_contents.find("---*/");
