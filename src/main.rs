@@ -93,7 +93,7 @@ fn main() {
     );
 }
 
-// This has the same function signature as it's nested function so maybe concatenate them together?
+// This has the same function signature as its nested function so maybe concatenate them together?
 fn generate_and_run(
     file_to_test: &PathBuf,
     files_to_add: Vec<PathBuf>,
