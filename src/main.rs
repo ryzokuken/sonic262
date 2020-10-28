@@ -28,16 +28,38 @@ struct Opts {
     // files_to_test: Option<Vec<PathBuf>>,
 }
 
+#[derive(Debug)]
+struct Diagnostics {
+    total_files: usize,
+    run: u16,
+    passed: u16,
+    failed: u16,
+}
+
+impl Diagnostics {
+    fn new() -> Self {
+        Self {
+            total_files: 0,
+            run: 0,
+            passed: 0,
+            failed: 0,
+        }
+    }
+}
+
 // TODO maybe use a logging crate instead of doing... this
 fn main() {
     let args = Opts::parse();
     // let files_to_test = args.files_to_test.unwrap();
+
+    let mut diagnostics = Diagnostics::new();
+
     let files_to_test = walk(args.test_path).unwrap();
     let include_path = args.include_path;
-    dbg!(&files_to_test.len());
-    let mut tests_run = 0;
-    let mut passed_tests = 0;
-    let mut failed_tests = 0;
+
+    diagnostics.total_files = files_to_test.len();
+    dbg!(&diagnostics);
+
     for file in files_to_test {
         let frontmatter = extract_frontmatter(&file);
         match frontmatter {
@@ -46,87 +68,57 @@ fn main() {
                     Some(includes_value) => {
                         match get_include_paths(includes_value, &include_path) {
                             Ok(include_files) => {
-                                match generate_final_file_to_test(&file, include_files) {
-                                    Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                                        Ok(exit_status) => {
-                                            if exit_status.success() {
-                                                tests_run += 1;
-                                                passed_tests += 1;
-                                                println!("{} {:?}", "Great Success".green(), file);
-                                            } else {
-                                                tests_run += 1;
-                                                failed_tests += 1;
-                                                eprintln!("{} {:?}", "FAIL".red(), file);
-                                            }
-                                        }
-                                        Err(e) => {
-                                            eprintln!("Failed to execute the file | Error: {:?}", e)
-                                        }
-                                    },
-                                    Err(e) => eprintln!(
-                                        "Couldn't generate file: {:?} to test | Err: {}",
-                                        file, e
-                                    ),
-                                }
+                                generate_and_run(&file, include_files, &mut diagnostics)
                             }
                             Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                         }
                     }
                     None => match get_include_paths(&Sequence([].to_vec()), &include_path) {
                         Ok(include_files) => {
-                            match generate_final_file_to_test(&file, include_files) {
-                                Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                                    Ok(exit_status) => {
-                                        if exit_status.success() {
-                                            tests_run += 1;
-                                            passed_tests += 1;
-                                            println!("{} {:?}", "Great Success".green(), file);
-                                        } else {
-                                            tests_run += 1;
-                                            failed_tests += 1;
-                                            eprintln!("{} {:?}", "FAIL".red(), file);
-                                        }
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to execute the file | Error: {:?}", e)
-                                    }
-                                },
-                                Err(e) => eprintln!(
-                                    "Couldn't generate file: {:?} to test | Err: {}",
-                                    file, e
-                                ),
-                            }
+                            generate_and_run(&file, include_files, &mut diagnostics)
                         }
                         Err(e) => eprintln!("Not able to find {:?} | Err: {}", file, e),
                     },
                 },
                 Err(e) => eprintln!("Could not get serde value from frontmatter | Err: {}", e),
             },
-            None => match generate_final_file_to_test(&file, vec![]) {
-                Ok(file_to_run) => match run_file_in_node(file_to_run) {
-                    Ok(exit_status) => {
-                        if exit_status.success() {
-                            tests_run += 1;
-                            passed_tests += 1;
-                            println!("{} {:?}", "Great Success".green(), file);
-                        } else {
-                            tests_run += 1;
-                            failed_tests += 1;
-                            eprintln!("{} {:?}", "FAIL".red(), file);
-                        }
-                    }
-                    Err(e) => eprintln!("Failed to execute the file | Error: {:?}", e),
-                },
-                Err(e) => eprintln!("Couldn't generate file: {:?} to test | Err: {}", file, e),
-            },
+            None => generate_and_run(&file, vec![], &mut diagnostics),
         }
     }
     println!(
         "TOTAL: {}, FAILED: {}, PASSED: {}",
-        tests_run.to_string().yellow(),
-        failed_tests.to_string().red(),
-        passed_tests.to_string().green()
+        diagnostics.run.to_string().yellow(),
+        diagnostics.failed.to_string().red(),
+        diagnostics.passed.to_string().green()
     );
+}
+
+// This has the same function signature as it's nested function so maybe concatenate them together?
+fn generate_and_run(
+    file_to_test: &PathBuf,
+    files_to_add: Vec<PathBuf>,
+    diagnostics: &mut Diagnostics,
+) {
+    match generate_final_file_to_test(file_to_test, files_to_add) {
+        Ok(file_to_run) => match run_file_in_node(file_to_run) {
+            Ok(exit_status) => {
+                if exit_status.success() {
+                    diagnostics.run += 1;
+                    diagnostics.passed += 1;
+                    println!("{} {:?}", "Great Success".green(), file_to_test);
+                } else {
+                    diagnostics.run += 1;
+                    diagnostics.failed += 1;
+                    eprintln!("{} {:?}", "FAIL".red(), file_to_test);
+                }
+            }
+            Err(e) => eprintln!("Failed to execute the file_to_test | Error: {:?}", e),
+        },
+        Err(e) => eprintln!(
+            "Couldn't generate file: {:?} to test | Err: {}",
+            file_to_test, e
+        ),
+    }
 }
 
 // TODO walk file in parallel using jwalk
