@@ -43,8 +43,8 @@ fn generate_includes(includes: Vec<String>, include_path: &PathBuf) -> String {
     contents
 }
 
-fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
-    println!("Running test {}", test_path.to_str().unwrap());
+fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Option<&str>) {
+    println!("RUN {}", display_path.unwrap_or(test_path.to_str().unwrap()));
     let mut test_file = std::fs::File::open(test_path).unwrap();
     let mut contents = String::new();
     test_file.read_to_string(&mut contents).unwrap();
@@ -69,12 +69,12 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf) {
 
 pub fn run_test(test_path: PathBuf, include_path: PathBuf) {
     if test_path.is_file() {
-        process_file(&test_path, &include_path);
+        process_file(&test_path, &include_path, None);
     } else {
-        for entry in walkdir::WalkDir::new(test_path) {
+        for entry in walkdir::WalkDir::new(test_path.clone()) {
             let ent = entry.unwrap();
             if ent.metadata().unwrap().is_file() {
-                process_file(&ent.into_path(), &include_path);
+                process_file(&ent.clone().into_path(), &include_path, Some(ent.into_path().strip_prefix(test_path.clone()).unwrap().to_str().unwrap()));
             }
         }
     }
