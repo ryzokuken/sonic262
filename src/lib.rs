@@ -44,14 +44,17 @@ fn generate_includes(includes: Vec<String>, include_path: &PathBuf) -> String {
 }
 
 fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Option<&str>) {
-    println!("RUN {}", display_path.unwrap_or(test_path.to_str().unwrap()));
+    println!(
+        "RUN {}",
+        display_path.unwrap_or(test_path.to_str().unwrap())
+    );
     let mut test_file = std::fs::File::open(test_path).unwrap();
     let mut contents = String::new();
     test_file.read_to_string(&mut contents).unwrap();
     let frontmatter = extract_frontmatter(&contents);
     if let Yaml::Hash(h) = frontmatter {
-        // let flags = extract_strings(h.get(&Yaml::String(String::from("flags"))));
-        // let features = extract_strings(h.get(&Yaml::String(String::from("features"))));
+        // let _flags = extract_strings(h.get(&Yaml::String(String::from("flags"))));
+        // let _features = extract_strings(h.get(&Yaml::String(String::from("features"))));
         let mut includes =
             extract_strings(h.get(&Yaml::String(String::from("includes")))).unwrap_or_default();
         includes.push(String::from("assert.js"));
@@ -60,7 +63,7 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Optio
         include_contents.push_str(&contents);
         let mut final_file = tempfile::NamedTempFile::new().unwrap();
         final_file.write_all(include_contents.as_bytes()).unwrap();
-        let node_process = std::process::Command::new("node")
+        let _node_process = std::process::Command::new("node")
             .arg(final_file.path())
             .output()
             .unwrap();
@@ -74,9 +77,18 @@ pub fn run_test(test_path: PathBuf, include_path: PathBuf) {
         for entry in walkdir::WalkDir::new(test_path.clone()) {
             let ent = entry.unwrap();
             if ent.metadata().unwrap().is_file() {
-                process_file(&ent.clone().into_path(), &include_path, Some(ent.into_path().strip_prefix(test_path.clone()).unwrap().to_str().unwrap()));
+                process_file(
+                    &ent.clone().into_path(),
+                    &include_path,
+                    Some(
+                        ent.into_path()
+                            .strip_prefix(test_path.clone())
+                            .unwrap()
+                            .to_str()
+                            .unwrap(),
+                    ),
+                );
             }
         }
     }
 }
-
