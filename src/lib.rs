@@ -19,17 +19,20 @@ fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
     }
 }
 
-fn extract_frontmatter(contents: &str) -> Yaml {
-    let yaml_start = contents.find("/*---").unwrap();
-    let yaml_end = contents.find("---*/").unwrap();
-    let text = contents
-        .get(yaml_start + 5..yaml_end)
-        .unwrap()
-        .replace("\r\n", "\n")
-        .replace("\r", "\n");
-    let text = text.trim_matches('\n');
-    let frontmatter = yaml_rust::YamlLoader::load_from_str(&text).unwrap();
-    frontmatter.first().cloned().unwrap()
+fn extract_frontmatter(contents: &str) -> Option<Yaml> {
+    if let Some(yaml_start) = contents.find("/*---") {
+        let yaml_end = contents.find("---*/").unwrap();
+        let text = contents
+            .get(yaml_start + 5..yaml_end)
+            .unwrap()
+            .replace("\r\n", "\n")
+            .replace("\r", "\n");
+        let text = text.trim_matches('\n');
+        let frontmatter = yaml_rust::YamlLoader::load_from_str(&text).unwrap();
+        frontmatter.first().cloned()
+    } else {
+        None
+    }
 }
 
 fn generate_includes(includes: Vec<String>, include_path: &PathBuf) -> String {
@@ -54,7 +57,7 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Optio
     let mut contents = String::new();
     test_file.read_to_string(&mut contents).unwrap();
     let frontmatter = extract_frontmatter(&contents);
-    if let Yaml::Hash(h) = frontmatter {
+    if let Some(Yaml::Hash(h)) = frontmatter {
         // let _flags = extract_strings(h.get(&Yaml::String(String::from("flags"))));
         // let _features = extract_strings(h.get(&Yaml::String(String::from("features"))));
         let mut includes =
@@ -69,6 +72,8 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Optio
             .arg(final_file.path())
             .output()
             .unwrap();
+    } else {
+        eprintln!("{}", "No frontmatter found for the file".red());
     }
 }
 
