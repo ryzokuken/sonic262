@@ -1,7 +1,7 @@
-use colored::Colorize;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
+use colored::Colorize;
 use yaml_rust::Yaml;
 
 fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
