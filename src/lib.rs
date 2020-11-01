@@ -4,18 +4,16 @@ use std::path::PathBuf;
 use colored::Colorize;
 use yaml_rust::Yaml;
 
-fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
+fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<&str>> {
     match yaml {
-        Some(Yaml::Array(array)) => Some(
-            array
+        Some(arr) => Some(
+            arr.as_vec()
+                .unwrap()
                 .iter()
-                .map(|v| match v {
-                    Yaml::String(s) => s.clone(),
-                    _ => String::new(),
-                })
+                .map(|v| v.as_str().unwrap())
                 .collect(),
         ),
-        _ => None,
+        None => None,
     }
 }
 
@@ -35,7 +33,7 @@ fn extract_frontmatter(contents: &str) -> Option<Yaml> {
     }
 }
 
-fn generate_includes(includes: Vec<String>, include_path: &PathBuf) -> String {
+fn generate_includes(includes: Vec<&str>, include_path: &PathBuf) -> String {
     let mut contents = String::new();
     for include in includes {
         let mut file = std::fs::File::open(include_path.join(include)).unwrap();
@@ -64,8 +62,8 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Optio
     // let _features = extract_strings(h.get(&Yaml::String(String::from("features"))));
     let mut includes = extract_strings(frontmatter.get(&Yaml::String(String::from("includes"))))
         .unwrap_or_default();
-    includes.push(String::from("assert.js"));
-    includes.push(String::from("sta.js"));
+    includes.push("assert.js");
+    includes.push("sta.js");
     let mut include_contents = generate_includes(includes, include_path);
     include_contents.push_str(&contents);
     let mut final_file = tempfile::NamedTempFile::new().unwrap();
