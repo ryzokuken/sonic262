@@ -24,7 +24,7 @@ fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<&str>> {
         Some(arr) => Some(
             arr.as_vec()
                 .unwrap()
-                .iter()
+                .par_iter()
                 .map(|v| v.as_str().unwrap())
                 .collect(),
         ),
