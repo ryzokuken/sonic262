@@ -2,7 +2,22 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 
 use colored::Colorize;
+use rayon::prelude::*;
+use walkdir::WalkDir;
 use yaml_rust::Yaml;
+
+fn walk(path: &PathBuf) -> walkdir::Result<Vec<PathBuf>> {
+    let mut final_paths: Vec<PathBuf> = vec![];
+    for entry in WalkDir::new(path) {
+        // FIXME possible unecessary clone
+        let entry_clone = entry?.clone();
+        if entry_clone.file_type().is_file() {
+            final_paths.push(entry_clone.into_path());
+        } else {
+        }
+    }
+    Ok(final_paths)
+}
 
 fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<&str>> {
     match yaml {
@@ -78,21 +93,18 @@ pub fn run_test(test_path: PathBuf, include_path: PathBuf) {
     if test_path.is_file() {
         process_file(&test_path, &include_path, None);
     } else {
-        for entry in walkdir::WalkDir::new(test_path.clone()) {
-            let ent = entry.unwrap();
-            if ent.metadata().unwrap().is_file() {
-                process_file(
-                    &ent.clone().into_path(),
-                    &include_path,
-                    Some(
-                        ent.into_path()
-                            .strip_prefix(test_path.clone())
-                            .unwrap()
-                            .to_str()
-                            .unwrap(),
-                    ),
-                );
-            }
-        }
+        let files_to_test = walk(&test_path).unwrap();
+        files_to_test.par_iter().for_each(|file| {
+            process_file(
+                &file,
+                &include_path,
+                Some(
+                    file.strip_prefix(test_path.clone())
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
+                ),
+            );
+        });
     }
 }
