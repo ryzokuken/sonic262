@@ -70,12 +70,14 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf) -> Result<Output, E
         .output()
 }
 
-fn print_test_status(output: Output, path: &str) {
+fn test_status(output: Output, path: &str) -> bool {
     if output.status.success() {
         println!("{} {}", "PASS".to_string().green(), path);
+        true
     } else {
         println!("{} {}", "FAIL".to_string().red(), path);
         println!("{}", String::from_utf8(output.stderr).unwrap());
+        false
     }
 }
 
@@ -85,17 +87,21 @@ pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> 
         if let Err(e) = res {
             return Err(e);
         }
-        print_test_status(res.unwrap(), test_path.to_str().unwrap());
+        test_status(res.unwrap(), test_path.to_str().unwrap());
         Ok(())
     } else {
+        let mut total = 0;
+        let mut pass = 0;
+        let mut fail = 0;
         for entry in walkdir::WalkDir::new(test_path.clone()) {
             let ent = entry.unwrap();
             if ent.metadata().unwrap().is_file() {
+                total += 1;
                 let res = process_file(&ent.path().to_path_buf(), &include_path);
                 if let Err(e) = res {
                     return Err(e);
                 }
-                print_test_status(
+                let res = test_status(
                     res.unwrap(),
                     ent.path()
                         .strip_prefix(test_path.clone())
@@ -103,8 +109,14 @@ pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> 
                         .to_str()
                         .unwrap(),
                 );
+                if res {
+                    pass += 1;
+                } else {
+                    fail += 1;
+                }
             }
         }
+        println!("TOTAL: {}\tPASS: {}\tFAIL: {}", total, pass, fail);
         Ok(())
     }
 }
