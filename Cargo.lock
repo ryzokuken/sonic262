@@ -642,6 +642,7 @@ dependencies = [
  "clap 3.0.0-beta.2",
  "colored",
  "criterion",
+ "rayon",
  "tempfile",
  "walkdir",
  "yaml-rust",
