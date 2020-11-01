@@ -47,6 +47,19 @@ fn generate_includes(includes: Vec<&str>, include_path: &PathBuf) -> String {
     contents
 }
 
+fn run_code(code: &str) -> Result<Output, Error> {
+    let code = json::stringify(code)
+        .replace("\u{2028}", "\\u2028")
+        .replace("\u{2029}", "\\u2029");
+    let container = include_str!("container.js");
+    let code = container.replace("${code}", &code);
+    let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
+    tmpfile.write_all(code.as_bytes()).unwrap();
+    std::process::Command::new("node")
+        .arg(tmpfile.path())
+        .output()
+}
+
 fn process_file(test_path: &PathBuf, include_path: &PathBuf) -> Result<Output, Error> {
     let mut test_file = std::fs::File::open(test_path).unwrap();
     let mut contents = String::new();
@@ -63,11 +76,7 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf) -> Result<Output, E
     includes.push("sta.js");
     let mut include_contents = generate_includes(includes, include_path);
     include_contents.push_str(&contents);
-    let mut final_file = tempfile::NamedTempFile::new().unwrap();
-    final_file.write_all(include_contents.as_bytes()).unwrap();
-    std::process::Command::new("node")
-        .arg(final_file.path())
-        .output()
+    run_code(include_contents.as_str())
 }
 
 fn test_status(output: Output, path: &str) -> bool {

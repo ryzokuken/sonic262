@@ -12,6 +12,7 @@ yaml-rust = "0.4"
 clap = "3.0.0-beta.2"
 tempfile = "3"
 colored = "2.0.0"
+json = "0.12"
 
 [dev-dependencies]
 criterion = "0.3"
