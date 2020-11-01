@@ -1,6 +1,7 @@
 use std::io::prelude::*;
 use std::path::PathBuf;
 
+use colored::Colorize;
 use yaml_rust::Yaml;
 
 fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<String>> {
@@ -45,7 +46,8 @@ fn generate_includes(includes: Vec<String>, include_path: &PathBuf) -> String {
 
 fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Option<&str>) {
     println!(
-        "RUN {}",
+        "{} {}",
+        "RUN".to_string().yellow(),
         display_path.unwrap_or_else(|| test_path.to_str().unwrap())
     );
     let mut test_file = std::fs::File::open(test_path).unwrap();
