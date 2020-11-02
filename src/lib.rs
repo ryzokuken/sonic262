@@ -1,5 +1,7 @@
 use std::io::prelude::*;
+use std::io::Error;
 use std::path::PathBuf;
+use std::process::Output;
 
 use colored::Colorize;
 use yaml_rust::Yaml;
@@ -45,12 +47,20 @@ fn generate_includes(includes: Vec<&str>, include_path: &PathBuf) -> String {
     contents
 }
 
-fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Option<&str>) {
-    println!(
-        "{} {}",
-        "RUN".to_string().yellow(),
-        display_path.unwrap_or_else(|| test_path.to_str().unwrap())
-    );
+fn run_code(code: &str) -> Result<Output, Error> {
+    let code = json::stringify(code)
+        .replace("\u{2028}", "\\u2028")
+        .replace("\u{2029}", "\\u2029");
+    let container = include_str!("container.js");
+    let code = container.replace("${code}", &code);
+    let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
+    tmpfile.write_all(code.as_bytes()).unwrap();
+    std::process::Command::new("node")
+        .arg(tmpfile.path())
+        .output()
+}
+
+fn process_file(test_path: &PathBuf, include_path: &PathBuf) -> Result<Output, Error> {
     let mut test_file = std::fs::File::open(test_path).unwrap();
     let mut contents = String::new();
     test_file.read_to_string(&mut contents).unwrap();
@@ -66,33 +76,56 @@ fn process_file(test_path: &PathBuf, include_path: &PathBuf, display_path: Optio
     includes.push("sta.js");
     let mut include_contents = generate_includes(includes, include_path);
     include_contents.push_str(&contents);
-    let mut final_file = tempfile::NamedTempFile::new().unwrap();
-    final_file.write_all(include_contents.as_bytes()).unwrap();
-    let _node_process = std::process::Command::new("node")
-        .arg(final_file.path())
-        .output()
-        .unwrap();
+    run_code(include_contents.as_str())
 }
 
-pub fn run_test(test_path: PathBuf, include_path: PathBuf) {
-    if test_path.is_file() {
-        process_file(&test_path, &include_path, None);
+fn test_status(output: Output, path: &str) -> bool {
+    if output.status.success() {
+        println!("{} {}", "PASS".to_string().green(), path);
+        true
     } else {
+        println!("{} {}", "FAIL".to_string().red(), path);
+        println!("{}", String::from_utf8(output.stderr).unwrap());
+        false
+    }
+}
+
+pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> {
+    if test_path.is_file() {
+        let res = process_file(&test_path, &include_path);
+        if let Err(e) = res {
+            return Err(e);
+        }
+        test_status(res.unwrap(), test_path.to_str().unwrap());
+        Ok(())
+    } else {
+        let mut total = 0;
+        let mut pass = 0;
+        let mut fail = 0;
         for entry in walkdir::WalkDir::new(test_path.clone()) {
             let ent = entry.unwrap();
             if ent.metadata().unwrap().is_file() {
-                process_file(
-                    &ent.clone().into_path(),
-                    &include_path,
-                    Some(
-                        ent.into_path()
-                            .strip_prefix(test_path.clone())
-                            .unwrap()
-                            .to_str()
-                            .unwrap(),
-                    ),
+                total += 1;
+                let res = process_file(&ent.path().to_path_buf(), &include_path);
+                if let Err(e) = res {
+                    return Err(e);
+                }
+                let res = test_status(
+                    res.unwrap(),
+                    ent.path()
+                        .strip_prefix(test_path.clone())
+                        .unwrap()
+                        .to_str()
+                        .unwrap(),
                 );
+                if res {
+                    pass += 1;
+                } else {
+                    fail += 1;
+                }
             }
         }
+        println!("TOTAL: {}\tPASS: {}\tFAIL: {}", total, pass, fail);
+        Ok(())
     }
 }

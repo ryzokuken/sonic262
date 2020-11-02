@@ -22,5 +22,5 @@ fn main() {
     let include_path = args
         .include_path
         .unwrap_or_else(|| root_path.unwrap().join("harness"));
-    sonic262::run_test(test_path, include_path);
+    sonic262::run_test(test_path, include_path).unwrap();
 }
