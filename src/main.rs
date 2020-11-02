@@ -29,6 +29,6 @@ fn main() {
 
     let diagnostics = sonic262::Diagnostics::default();
 
-    sonic262::run(test_path, include_path, diagnostics)
+    sonic262::run_all(test_path, include_path, diagnostics)
 
 }

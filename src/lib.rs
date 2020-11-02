@@ -14,6 +14,7 @@ pub struct Diagnostics {
     pub run: u16,
     pub passed: u16,
     pub failed: u16,
+    pub no_frontmatter: Vec<PathBuf>,
 }
 
 pub fn generate_and_run(
@@ -22,7 +23,7 @@ pub fn generate_and_run(
     diagnostics: &mut Diagnostics,
 ) {
     match generate_final_file_to_test(file_to_test, files_to_add) {
-        Ok(file_to_run) => match run_file_in_node(file_to_run) {
+        Ok(file_to_run) => match spawn_node_process(file_to_run) {
             Ok(exit_status) => {
                 if exit_status.success() {
                     diagnostics.run += 1;
@@ -112,13 +113,13 @@ fn generate_final_file_to_test(
     Ok(file)
 }
 
-pub fn run_file_in_node(file: NamedTempFile) -> std::io::Result<ExitStatus> {
+pub fn spawn_node_process(file: NamedTempFile) -> std::io::Result<ExitStatus> {
     // TODO .status() waits for the command to execute
     // FIXME currently shows all the errors if node is not able to run the file
     Command::new("node").arg(file.path()).status()
 }
 
-pub fn run(test_path: PathBuf, include_path: PathBuf, mut diagnostics: Diagnostics) {
+pub fn run_all(test_path: PathBuf, include_path: PathBuf, mut diagnostics: Diagnostics) {
     let files_to_test = walk(test_path).unwrap();
     for file in files_to_test {
         let frontmatter = extract_frontmatter(&file);
@@ -142,13 +143,19 @@ pub fn run(test_path: PathBuf, include_path: PathBuf, mut diagnostics: Diagnosti
                 },
                 Err(e) => eprintln!("Could not get serde value from frontmatter | Err: {}", e),
             },
-            None => generate_and_run(&file, vec![], &mut diagnostics),
+            None => {
+                diagnostics.no_frontmatter.push(file)
+            },
         }
     }
     println!(
         "TOTAL: {}, FAILED: {}, PASSED: {}",
         diagnostics.run.to_string().yellow(),
         diagnostics.failed.to_string().red(),
-        diagnostics.passed.to_string().green()
+        diagnostics.passed.to_string().green(),
     );
+    println!("File(s) for which no frontmatter was found: {}", diagnostics.no_frontmatter.len().to_string().cyan());
+    for file in diagnostics.no_frontmatter {
+        println!("{:?}", file);
+    }
 }
