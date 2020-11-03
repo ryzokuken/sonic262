@@ -18,5 +18,5 @@ json = "0.12"
 criterion = "0.3"
 
 [[bench]]
-name = "full"
+name = "main"
 harness = false
