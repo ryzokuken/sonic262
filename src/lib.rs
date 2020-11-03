@@ -6,6 +6,13 @@ use std::process::Output;
 use colored::Colorize;
 use yaml_rust::Yaml;
 
+#[derive(Default)]
+pub struct Diagnostics {
+    pub total: usize,
+    pub pass: usize,
+    pub fail: usize,
+}
+
 fn extract_strings(yaml: Option<&Yaml>) -> Option<Vec<&str>> {
     match yaml {
         Some(arr) => Some(
@@ -90,22 +97,26 @@ fn test_status(output: Output, path: &str) -> bool {
     }
 }
 
-pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> {
+pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<Diagnostics, Error> {
+    let mut diagnostics = Diagnostics::default();
     if test_path.is_file() {
         let res = process_file(&test_path, &include_path);
+        diagnostics.total += 1;
         if let Err(e) = res {
             return Err(e);
         }
-        test_status(res.unwrap(), test_path.to_str().unwrap());
-        Ok(())
+        let res = test_status(res.unwrap(), test_path.to_str().unwrap());
+        if res {
+            diagnostics.pass += 1;
+        } else {
+            diagnostics.fail += 1;
+        }
+        Ok(diagnostics)
     } else {
-        let mut total = 0;
-        let mut pass = 0;
-        let mut fail = 0;
         for entry in walkdir::WalkDir::new(test_path.clone()) {
             let ent = entry.unwrap();
             if ent.metadata().unwrap().is_file() {
-                total += 1;
+                diagnostics.total += 1;
                 let res = process_file(&ent.path().to_path_buf(), &include_path);
                 if let Err(e) = res {
                     return Err(e);
@@ -119,13 +130,16 @@ pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> 
                         .unwrap(),
                 );
                 if res {
-                    pass += 1;
+                    diagnostics.pass += 1;
                 } else {
-                    fail += 1;
+                    diagnostics.fail += 1;
                 }
             }
         }
-        println!("TOTAL: {}\tPASS: {}\tFAIL: {}", total, pass, fail);
-        Ok(())
+        println!(
+            "TOTAL: {}\tPASS: {}\tFAIL: {}",
+            diagnostics.total, diagnostics.pass, diagnostics.fail
+        );
+        Ok(diagnostics)
     }
 }
