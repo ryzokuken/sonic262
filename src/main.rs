@@ -13,7 +13,8 @@ struct Opts {
     include_path: Option<PathBuf>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Opts::parse();
     let root_path = args.root_path;
     let test_path = args
@@ -22,5 +23,5 @@ fn main() {
     let include_path = args
         .include_path
         .unwrap_or_else(|| root_path.unwrap().join("harness"));
-    sonic262::run_test(test_path, include_path).unwrap();
+    sonic262::run_test(test_path, include_path).await.unwrap();
 }

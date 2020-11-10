@@ -2,6 +2,7 @@ use std::io::prelude::*;
 use std::io::Error;
 use std::path::PathBuf;
 use std::process::Output;
+use tokio::fs::read_to_string;
 
 use colored::Colorize;
 use yaml_rust::Yaml;
@@ -60,10 +61,8 @@ fn run_code(code: &str) -> Result<Output, Error> {
         .output()
 }
 
-fn process_file(test_path: &PathBuf, include_path: &PathBuf) -> Result<Output, Error> {
-    let mut test_file = std::fs::File::open(test_path).unwrap();
-    let mut contents = String::new();
-    test_file.read_to_string(&mut contents).unwrap();
+async fn process_file(test_path: &PathBuf, include_path: &PathBuf) -> Result<Output, Error> {
+    let contents = read_to_string(test_path).await?;
     let frontmatter = extract_frontmatter(&contents)
         .expect("no frontmatter found for the file")
         .into_hash()
@@ -90,9 +89,9 @@ fn test_status(output: Output, path: &str) -> bool {
     }
 }
 
-pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> {
+pub async fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> {
     if test_path.is_file() {
-        let res = process_file(&test_path, &include_path);
+        let res = process_file(&test_path, &include_path).await;
         if let Err(e) = res {
             return Err(e);
         }
@@ -106,7 +105,7 @@ pub fn run_test(test_path: PathBuf, include_path: PathBuf) -> Result<(), Error> 
             let ent = entry.unwrap();
             if ent.metadata().unwrap().is_file() {
                 total += 1;
-                let res = process_file(&ent.path().to_path_buf(), &include_path);
+                let res = process_file(&ent.path().to_path_buf(), &include_path).await;
                 if let Err(e) = res {
                     return Err(e);
                 }
