@@ -13,6 +13,7 @@ clap = "3.0.0-beta.2"
 tempfile = "3"
 colored = "2.0.0"
 json = "0.12"
+tokio = { version = "0.3.3", features = ["full"] }
 
 [dev-dependencies]
 criterion = "0.3"
