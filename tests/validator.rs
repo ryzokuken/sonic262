@@ -40,8 +40,7 @@ fn normal_test_pass() {
 
 #[test]
 fn normal_test_fail_nonzero_exit() {
-    let (test, scenario, raw) =
-        make_result(&[], None, Some(1), "", "TypeError: bad\n", false);
+    let (test, scenario, raw) = make_result(&[], None, Some(1), "", "TypeError: bad\n", false);
     let result = validate(&test, scenario, &raw);
     assert!(!result.pass);
     assert!(result.message.as_ref().unwrap().contains("TypeError"));
@@ -94,8 +93,7 @@ fn async_test_failure() {
 
 #[test]
 fn async_test_no_completion() {
-    let (test, scenario, raw) =
-        make_result(&[TestFlag::Async], None, Some(0), "", "", false);
+    let (test, scenario, raw) = make_result(&[TestFlag::Async], None, Some(0), "", "", false);
     let result = validate(&test, scenario, &raw);
     assert!(!result.pass);
     assert!(result
@@ -129,14 +127,8 @@ fn negative_runtime_wrong_error() {
         phase: NegativePhase::Runtime,
         error_type: "TypeError".to_string(),
     };
-    let (test, scenario, raw) = make_result(
-        &[],
-        Some(neg),
-        Some(1),
-        "",
-        "RangeError: invalid\n",
-        false,
-    );
+    let (test, scenario, raw) =
+        make_result(&[], Some(neg), Some(1), "", "RangeError: invalid\n", false);
     let result = validate(&test, scenario, &raw);
     assert!(!result.pass);
 }

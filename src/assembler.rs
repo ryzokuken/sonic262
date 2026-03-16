@@ -11,6 +11,12 @@ pub struct HarnessCache {
     harness_dir: Option<PathBuf>,
 }
 
+impl Default for HarnessCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HarnessCache {
     pub fn new() -> Self {
         Self {
@@ -53,10 +59,7 @@ impl HarnessCache {
     }
 }
 
-pub fn assemble(
-    test: &Arc<TestCase>,
-    cache: &HarnessCache,
-) -> Result<Vec<TestRun>, ParseError> {
+pub fn assemble(test: &Arc<TestCase>, cache: &HarnessCache) -> Result<Vec<TestRun>, ParseError> {
     let flags = &test.metadata.flags;
 
     if flags.contains(&TestFlag::Raw) {
@@ -111,10 +114,7 @@ pub fn assemble(
     Ok(runs)
 }
 
-fn build_preamble(
-    test: &TestCase,
-    cache: &HarnessCache,
-) -> Result<String, ParseError> {
+fn build_preamble(test: &TestCase, cache: &HarnessCache) -> Result<String, ParseError> {
     let mut preamble = String::new();
 
     preamble.push_str(&cache.get("assert.js")?);

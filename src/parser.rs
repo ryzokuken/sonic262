@@ -3,9 +3,7 @@ use std::path::PathBuf;
 
 use yaml_rust2::{Yaml, YamlLoader};
 
-use crate::types::{
-    NegativeExpectation, NegativePhase, TestCase, TestFlag, TestMetadata,
-};
+use crate::types::{NegativeExpectation, NegativePhase, TestCase, TestFlag, TestMetadata};
 
 #[derive(Debug)]
 pub struct ParseError(pub String);
@@ -35,8 +33,8 @@ pub fn extract_frontmatter(contents: &str) -> Result<TestMetadata, ParseError> {
         return Ok(TestMetadata::default());
     }
 
-    let docs = YamlLoader::load_from_str(raw)
-        .map_err(|e| ParseError(format!("YAML parse error: {e}")))?;
+    let docs =
+        YamlLoader::load_from_str(raw).map_err(|e| ParseError(format!("YAML parse error: {e}")))?;
 
     let doc = docs
         .first()
@@ -142,11 +140,11 @@ pub fn discover_tests(
     Ok(tests)
 }
 
-pub fn detect_harness_dir(test_path: &PathBuf) -> Option<PathBuf> {
+pub fn detect_harness_dir(test_path: &std::path::Path) -> Option<PathBuf> {
     let start = if test_path.is_file() {
         test_path.parent()?
     } else {
-        test_path.as_path()
+        test_path
     };
 
     let mut current = std::fs::canonicalize(start).ok()?;

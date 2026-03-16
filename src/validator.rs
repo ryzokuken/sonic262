@@ -30,8 +30,8 @@ fn validate_normal(test: &Arc<TestCase>, scenario: Scenario, raw: &RawResult) ->
             message: None,
         }
     } else {
-        let message = extract_error_message(&raw.stderr)
-            .unwrap_or_else(|| "Non-zero exit code".to_string());
+        let message =
+            extract_error_message(&raw.stderr).unwrap_or_else(|| "Non-zero exit code".to_string());
         TestResult {
             test: Arc::clone(test),
             scenario,

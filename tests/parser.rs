@@ -109,7 +109,9 @@ flags: [non-deterministic]
 test();
 "#;
     let meta = extract_frontmatter(contents).unwrap();
-    assert!(meta.flags.contains(&sonic262::types::TestFlag::NonDeterministic));
+    assert!(meta
+        .flags
+        .contains(&sonic262::types::TestFlag::NonDeterministic));
 }
 
 #[test]

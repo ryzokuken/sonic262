@@ -104,8 +104,7 @@ impl<W: Write> Reporter for JsonReporter<W> {
             obj["message"] = msg.as_str().into();
         }
         if !result.test.metadata.features.is_empty() {
-            obj["features"] =
-                result.test.metadata.features.clone().into();
+            obj["features"] = result.test.metadata.features.clone().into();
         }
 
         if let Some(keys) = &self.keys {

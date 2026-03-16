@@ -30,7 +30,7 @@ pub struct NegativeExpectation {
     pub error_type: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TestMetadata {
     pub description: Option<String>,
     pub flags: HashSet<TestFlag>,
@@ -38,19 +38,6 @@ pub struct TestMetadata {
     pub includes: Vec<String>,
     pub negative: Option<NegativeExpectation>,
     pub locale: Vec<String>,
-}
-
-impl Default for TestMetadata {
-    fn default() -> Self {
-        Self {
-            description: None,
-            flags: HashSet::new(),
-            features: Vec::new(),
-            includes: Vec::new(),
-            negative: None,
-            locale: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug)]

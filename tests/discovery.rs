@@ -4,35 +4,20 @@ use sonic262::parser::{detect_harness_dir, discover_tests};
 
 #[test]
 fn discovers_single_js_file() {
-    let tests = discover_tests(
-        &[PathBuf::from("benches/fixtures/single.js")],
-        None,
-        None,
-    )
-    .unwrap();
+    let tests = discover_tests(&[PathBuf::from("benches/fixtures/single.js")], None, None).unwrap();
     assert_eq!(tests.len(), 1);
     assert!(tests[0].relative_path.ends_with("single.js"));
 }
 
 #[test]
 fn discovers_directory_recursively() {
-    let tests = discover_tests(
-        &[PathBuf::from("benches/fixtures/multiple")],
-        None,
-        None,
-    )
-    .unwrap();
+    let tests = discover_tests(&[PathBuf::from("benches/fixtures/multiple")], None, None).unwrap();
     assert!(tests.len() >= 5);
 }
 
 #[test]
 fn skips_fixture_files() {
-    let tests = discover_tests(
-        &[PathBuf::from("benches/fixtures/multiple")],
-        None,
-        None,
-    )
-    .unwrap();
+    let tests = discover_tests(&[PathBuf::from("benches/fixtures/multiple")], None, None).unwrap();
     for test in &tests {
         assert!(
             !test.relative_path.contains("_FIXTURE"),
@@ -55,12 +40,7 @@ fn filters_by_feature_include() {
 
 #[test]
 fn feature_exclude_filters_out_matching() {
-    let all = discover_tests(
-        &[PathBuf::from("benches/fixtures/multiple")],
-        None,
-        None,
-    )
-    .unwrap();
+    let all = discover_tests(&[PathBuf::from("benches/fixtures/multiple")], None, None).unwrap();
     let filtered = discover_tests(
         &[PathBuf::from("benches/fixtures/multiple")],
         None,
